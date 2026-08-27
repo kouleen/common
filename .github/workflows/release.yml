@@ -1,0 +1,64 @@
+name: Build and Release
+
+on:
+  push:
+    branches: ["release"]   # push 到 release 分支时触发发版
+  pull_request:
+    branches: ["main"]      # PR 到 main 时只跑校验，不发版
+
+jobs:
+  # ---------- Job 1: 代码质量校验 ----------
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -race -coverprofile=coverage.out
+
+  # ---------- Job 2: 自动打 tag + 创建 Release（仅 release 分支） ----------
+  release:
+    needs: verify          # 校验通过才发版
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # 需要写权限才能打 tag 和创建 release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 拉取完整历史，才能读取上一个 tag
+
+      - name: Bump version and push tag
+        id: tag
+        uses: anothrNick/github-tag-action@1.71.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true              # tag 带 v 前缀：v0.1.0
+          DEFAULT_BUMP: patch       # 默认升 patch 版本（0.0.x）
+          # 想升 minor 就在 commit message 里包含 #minor
+          # 想升 major 就在 commit message 里包含 #major
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true   # 自动生成 release notes（基于 PR）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
