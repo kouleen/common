@@ -3,6 +3,8 @@ package client
 import (
 	"log"
 
+	"github.com/cloudwego/kitex/client"
+	"github.com/cloudwego/kitex/pkg/transmeta"
 	"github.com/kouleen/common/bootstrap"
 	"github.com/kouleen/common/middleware"
 	"github.com/kouleen/idl/kitex_gen/rpc"
@@ -24,12 +26,22 @@ func GetSystemRpc() systemservice.Client {
 }
 
 func init() {
-	userClient, err := bootstrap.NewClient(rpc.USER_RPC_SERVER, userservice.NewClient, bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware))
+	userClient, err := bootstrap.NewClient(
+		rpc.USER_RPC_SERVER,
+		userservice.NewClient,
+		bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
+		bootstrap.WithClientOption(client.WithMetaHandler(transmeta.ClientTTHeaderHandler)),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 	userRpc = userClient
-	systemClient, err := bootstrap.NewClient(rpc.SYSTEM_RPC_SERVER, systemservice.NewClient, bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware))
+	systemClient, err := bootstrap.NewClient(
+		rpc.SYSTEM_RPC_SERVER,
+		systemservice.NewClient,
+		bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
+		bootstrap.WithClientOption(client.WithMetaHandler(transmeta.ClientTTHeaderHandler)),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
