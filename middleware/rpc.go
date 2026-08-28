@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bytedance/gopkg/cloud/metainfo"
 	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
@@ -11,15 +12,14 @@ import (
 	"github.com/kouleen/common/pkg/ctxutil"
 )
 
-const (
-	HeaderTraceID = "x‑trace‑id"
-	HeaderUserID  = "x‑user‑id"
-)
-
 // RpcServerMiddleware 【服务端中间件：被别人调用】
 // 接收上游传来 x‑trace‑id、x‑user‑id；存入持久meta；打印请求响应耗时日志
 func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 	return func(ctx context.Context, req, resp interface{}) (err error) {
+		// ===== 调试：打印服务端收到的全部 meta =====
+		allPersistent := metainfo.GetAllPersistentValues(ctx)
+		allTransient := metainfo.GetAllValues(ctx)
+		logger.CtxInfof(ctx, "[DEBUG-SERVER] persistent=%+v transient=%+v", allPersistent, allTransient)
 		// 1. 从RPC元数据读取上游透传过来的值
 		traceId := ctxutil.GetTraceId(ctx)
 		userId := ctxutil.GetUserId(ctx)
@@ -51,6 +51,10 @@ func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 // 从ctx读取 x‑trace‑id、x‑user‑id，封装进持久元数据，传递给远端服务端；打印调用耗时
 func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 	return func(ctx context.Context, req, resp interface{}) (err error) {
+		// ===== 调试：打印客户端收到的全部 meta =====
+		allPersistent := metainfo.GetAllPersistentValues(ctx)
+		allTransient := metainfo.GetAllValues(ctx)
+		logger.CtxInfof(ctx, "[DEBUG-CLIENT] persistent=%+v transient=%+v", allPersistent, allTransient)
 		// ==========【客户端：从本地ctx读取已有链路信息，打包发送给远端】==========
 		traceId := ctxutil.GetTraceId(ctx)
 		userId := ctxutil.GetUserId(ctx)

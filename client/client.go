@@ -3,8 +3,6 @@ package client
 import (
 	"log"
 
-	"github.com/cloudwego/kitex/client"
-	"github.com/cloudwego/kitex/pkg/transmeta"
 	"github.com/kouleen/common/bootstrap"
 	"github.com/kouleen/common/middleware"
 	"github.com/kouleen/idl/kitex_gen/rpc"
@@ -30,7 +28,6 @@ func init() {
 		rpc.USER_RPC_SERVER,
 		userservice.NewClient,
 		bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
-		bootstrap.WithClientOption(client.WithMetaHandler(transmeta.ClientTTHeaderHandler)),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -40,7 +37,6 @@ func init() {
 		rpc.SYSTEM_RPC_SERVER,
 		systemservice.NewClient,
 		bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
-		bootstrap.WithClientOption(client.WithMetaHandler(transmeta.ClientTTHeaderHandler)),
 	)
 	if err != nil {
 		log.Fatal(err)

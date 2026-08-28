@@ -9,6 +9,7 @@ import (
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
 	"github.com/cloudwego/kitex/pkg/transmeta"
+	"github.com/cloudwego/kitex/transport"
 	etcd "github.com/kitex-contrib/registry-etcd"
 )
 
@@ -72,6 +73,7 @@ func NewClient[T any](destService string, newClient func(string, ...client.Optio
 	clientOpts := []client.Option{
 		client.WithResolver(r),
 		client.WithMetaHandler(transmeta.ClientTTHeaderHandler),
+		client.WithTransportProtocol(transport.TTHeaderFramed),
 		client.WithClientBasicInfo(&rpcinfo.EndpointBasicInfo{
 			ServiceName: currentServiceName, // 调用方服务名，自动填充
 		}),

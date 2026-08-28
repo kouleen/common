@@ -47,7 +47,9 @@ func SetMeta(ctx context.Context, traceId string, userId int64) context.Context 
 	if ctx == nil {
 		return ctx
 	}
-	ctx = metainfo.WithPersistentValue(ctx, TraceID, traceId)
-	ctx = metainfo.WithPersistentValue(ctx, UserID, strconv.FormatInt(userId, 10))
-	return ctx
+
+	return metainfo.WithPersistentValues(ctx,
+		TraceID, traceId,
+		UserID, strconv.FormatInt(userId, 10),
+	)
 }
