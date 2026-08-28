@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/bytedance/gopkg/cloud/metainfo"
 	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
@@ -16,13 +15,8 @@ import (
 // 接收上游传来 x‑trace‑id、x‑user‑id；存入持久meta；打印请求响应耗时日志
 func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 	return func(ctx context.Context, req, resp interface{}) (err error) {
-		// ===== 调试：打印服务端收到的全部 meta =====
-		allPersistent := metainfo.GetAllPersistentValues(ctx)
-		allTransient := metainfo.GetAllValues(ctx)
-		logger.CtxInfof(ctx, "[DEBUG-SERVER] persistent=%+v transient=%+v", allPersistent, allTransient)
 		// 1. 从RPC元数据读取上游透传过来的值
 		traceId := ctxutil.GetTraceId(ctx)
-		userId := ctxutil.GetUserId(ctx)
 
 		// 如果上游没有traceId，可以在这里生成新traceId（可选）
 		if traceId == "" {
@@ -33,15 +27,13 @@ func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 		svcName := ri.To().ServiceName()
 		method := ri.To().Method()
 
-		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcServer ServiceName:[%s] Method:[%s] request: %#v",
-			traceId, userId, svcName, method, req)
+		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] request: %#v", traceId, svcName, method, req)
 
 		startTime := time.Now()
 		err = next(ctx, req, resp)
 		costMs := float64(time.Since(startTime).Nanoseconds()) / 1e6
 
-		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcServer ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v",
-			traceId, userId, svcName, method, costMs, err, resp)
+		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v", traceId, svcName, method, costMs, err, resp)
 
 		return err
 	}
@@ -51,10 +43,6 @@ func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 // 从ctx读取 x‑trace‑id、x‑user‑id，封装进持久元数据，传递给远端服务端；打印调用耗时
 func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 	return func(ctx context.Context, req, resp interface{}) (err error) {
-		// ===== 调试：打印客户端收到的全部 meta =====
-		allPersistent := metainfo.GetAllPersistentValues(ctx)
-		allTransient := metainfo.GetAllValues(ctx)
-		logger.CtxInfof(ctx, "[DEBUG-CLIENT] persistent=%+v transient=%+v", allPersistent, allTransient)
 		// ==========【客户端：从本地ctx读取已有链路信息，打包发送给远端】==========
 		traceId := ctxutil.GetTraceId(ctx)
 		userId := ctxutil.GetUserId(ctx)
@@ -66,15 +54,14 @@ func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 		svcName := ri.To().ServiceName()
 		method := ri.To().Method()
 
-		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcClient Call Service:[%s] Method:[%s] request:%#v",
-			traceId, userId, svcName, method, req)
+		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] request:%#v", traceId, svcName, method, req)
 
 		start := time.Now()
 		err = next(ctx, req, resp)
 		costMs := float64(time.Since(start).Nanoseconds()) / 1e6
 
-		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcClient Call Service:[%s] Method:[%s] cost:%.2fms err:%v response:%#v",
-			traceId, userId, svcName, method, costMs, err, resp)
+		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] cost:%.2fms err:%v response:%#v",
+			traceId, svcName, method, costMs, err, resp)
 
 		return err
 	}
