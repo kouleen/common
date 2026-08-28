@@ -5,6 +5,8 @@ on:
     branches: ["release"]   # push 到 release 分支时触发发版
   pull_request:
     branches: ["main"]      # PR 到 main 时只跑校验，不发版
+concurrency:
+  group: ${{ github.workflow }}‑${{ github.ref }}
 
 jobs:
   # ---------- Job 1: 代码质量校验 ----------

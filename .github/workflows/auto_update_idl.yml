@@ -1,0 +1,65 @@
+name: auto update idl dependency and push code
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_from_sha:
+        description: trigger source idl repo commit sha
+        required: false
+        type: string
+      new_idl_version:
+        description: idl new tag version e.g v0.0.12
+        required: true
+        type: string
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # ⚠使用PAT推送，这里不要用默认token，后面git会覆盖
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      # 拉取最新tag信息，保证go get可以拿到刚发布的tag
+      - name: Fetch go module latest tag
+        run: |
+          go clean -modcache
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Go get new idl version & tidy
+        run: |
+          go get github.com/kouleen/idl@${{ github.event.inputs.new_idl_version }}
+          go mod tidy
+
+      - name: Check go.mod/go.sum changes
+        id: check_change
+        run: |
+          git add go.mod go.sum
+          if git diff --quiet --cached go.mod go.sum; then
+            echo "changed=false" >> $GITHUB_ENV
+            echo "✅依赖无变更，跳过提交推送"
+          else
+            echo "changed=true" >> $GITHUB_ENV
+          fi
+
+      - name: Commit & Push changes
+        if: env.changed == 'true'
+        env:
+          # 复用你之前的PAT，拥有repo权限
+          GH_PAT: ${{ secrets.CROSS_REPO_PAT }}
+          TARGET_BRANCH: release
+        run: |
+          git commit -m "chore(auto): bump idl to ${{ github.event.inputs.new_idl_version }}"
+          # 使用PAT做remote url，push会触发仓库push事件，从而跑Build and Release流水线
+          git remote set-url origin https://${GH_PAT}@github.com/kouleen/common.git
+          git push origin ${TARGET_BRANCH}
