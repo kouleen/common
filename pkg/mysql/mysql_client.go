@@ -26,10 +26,14 @@ func init() {
 		log.Fatal("MYSQL_PASSWORD env variable not set")
 	}
 	if os.Getenv("MYSQL_HOST") == "" {
-		log.Fatal("MYSQL_HOST env variable not set")
+		if err := os.Setenv("MYSQL_HOST", "mysql"); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if os.Getenv("MYSQL_PORT") == "" {
-		log.Fatal("MYSQL_PORT env variable not set")
+		if err := os.Setenv("MYSQL_PORT", "3306"); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if os.Getenv("MYSQL_DATABASE") == "" {
 		log.Fatal("MYSQL_DATABASE env variable not set")

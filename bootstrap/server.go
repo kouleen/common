@@ -43,7 +43,9 @@ func Options(serviceName string, opts ...ServerOption) []server.Option {
 	}
 
 	if os.Getenv("ETCD_ENDPOINTS") == "" {
-		log.Fatal("ETCD_ENDPOINTS is empty")
+		if err := os.Setenv("ETCD_ENDPOINTS", "etcd:2379"); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if os.Getenv("ADDRESS") == "" {
 		log.Fatal("ADDRESS is empty")

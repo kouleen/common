@@ -13,6 +13,11 @@ import (
 var redisClient *redis.Client
 
 func init() {
+	if os.Getenv("REDIS_ADDR") == "" {
+		if err := os.Setenv("REDIS_ADDR", "redis:6379"); err != nil {
+			log.Fatal(err)
+		}
+	}
 	if v := os.Getenv("REDIS_DB"); v != "" {
 		if iv, err := strconv.Atoi(v); err == nil {
 			InitRedis(os.Getenv("REDIS_ADDR"), os.Getenv("REDIS_PASSWORD"), iv)

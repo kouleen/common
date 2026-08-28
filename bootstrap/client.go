@@ -60,9 +60,10 @@ func NewClient[T any](destService string, newClient func(string, ...client.Optio
 		o(c)
 	}
 	if os.Getenv("ETCD_ENDPOINTS") == "" {
-		log.Fatal("ETCD_ENDPOINTS is empty")
+		if err := os.Setenv("ETCD_ENDPOINTS", "etcd:2379"); err != nil {
+			log.Fatal(err)
+		}
 	}
-
 	r, err := etcd.NewEtcdResolver([]string{os.Getenv("ETCD_ENDPOINTS")})
 	if err != nil {
 		var zero T
