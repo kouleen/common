@@ -9,6 +9,7 @@ import (
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
 	"github.com/google/uuid"
 	"github.com/kouleen/common/pkg/ctxutil"
+	"github.com/luci/go-render/render"
 )
 
 // RpcServerMiddleware 【服务端中间件：被别人调用】
@@ -27,13 +28,13 @@ func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 		svcName := ri.To().ServiceName()
 		method := ri.To().Method()
 
-		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] request: %#v", traceId, svcName, method, req)
+		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] request: %#v", traceId, svcName, method, render.Render(req))
 
 		startTime := time.Now()
 		err = next(ctx, req, resp)
 		costMs := float64(time.Since(startTime).Nanoseconds()) / 1e6
 
-		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v", traceId, svcName, method, costMs, err, resp)
+		logger.CtxInfof(ctx, "[%s]-RpcServer ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v", traceId, svcName, method, costMs, err, render.Render(resp))
 
 		return err
 	}
@@ -54,14 +55,13 @@ func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 		svcName := ri.To().ServiceName()
 		method := ri.To().Method()
 
-		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] request:%#v", traceId, svcName, method, req)
+		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] request:%#v", traceId, svcName, method, render.Render(req))
 
 		start := time.Now()
 		err = next(ctx, req, resp)
 		costMs := float64(time.Since(start).Nanoseconds()) / 1e6
 
-		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] cost:%.2fms err:%v response:%#v",
-			traceId, svcName, method, costMs, err, resp)
+		logger.CtxInfof(ctx, "[%s]-RpcClient Call Service:[%s] Method:[%s] cost:%.2fms err:%v response:%#v", traceId, svcName, method, costMs, err, render.Render(resp))
 
 		return err
 	}
