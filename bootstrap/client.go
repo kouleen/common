@@ -25,8 +25,8 @@ func SetCurrentServiceName(name string) {
 	})
 }
 
-// clientOption 客户端选项
-type clientOption func(*clientConfig)
+// ClientOption 客户端选项
+type ClientOption func(*clientConfig)
 
 type clientConfig struct {
 	middlewares []endpoint.Middleware
@@ -34,14 +34,14 @@ type clientConfig struct {
 }
 
 // WithClientMiddleware 挂载客户端中间件
-func WithClientMiddleware(mw ...endpoint.Middleware) clientOption {
+func WithClientMiddleware(mw ...endpoint.Middleware) ClientOption {
 	return func(c *clientConfig) {
 		c.middlewares = append(c.middlewares, mw...)
 	}
 }
 
 // WithClientOption 透传额外的 kitex client.Option
-func WithClientOption(opts ...client.Option) clientOption {
+func WithClientOption(opts ...client.Option) ClientOption {
 	return func(c *clientConfig) {
 		c.extraOpts = append(c.extraOpts, opts...)
 	}
@@ -54,7 +54,7 @@ func WithClientOption(opts ...client.Option) clientOption {
 //	newClient:   IDL 生成的构造函数，如 systemservice.NewClient
 //
 // 客户端泛型是安全的——T 只从 newClient 的返回值推断，没有冲突。
-func NewClient[T any](destService string, newClient func(string, ...client.Option) (T, error), opts ...clientOption) (T, error) {
+func NewClient[T any](destService string, newClient func(string, ...client.Option) (T, error), opts ...ClientOption) (T, error) {
 	c := &clientConfig{}
 	for _, o := range opts {
 		o(c)

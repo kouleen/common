@@ -4,31 +4,74 @@ import (
 	"context"
 	"time"
 
-	"github.com/bytedance/gopkg/cloud/metainfo"
 	"github.com/bytedance/gopkg/util/logger"
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
+	"github.com/google/uuid"
+	"github.com/kouleen/common/pkg/ctxutil"
 )
 
-// RpcClientMiddleware 自定义RPC拦截中间件
-func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
+const (
+	HeaderTraceID = "x‑trace‑id"
+	HeaderUserID  = "x‑user‑id"
+)
+
+// RpcServerMiddleware 【服务端中间件：被别人调用】
+// 接收上游传来 x‑trace‑id、x‑user‑id；存入持久meta；打印请求响应耗时日志
+func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 	return func(ctx context.Context, req, resp interface{}) (err error) {
-		traceId, _ := metainfo.GetPersistentValue(ctx, "x-trace-id")
-		// =========调用前（拦截前置逻辑）=========
+		// 1. 从RPC元数据读取上游透传过来的值
+		traceId := ctxutil.GetTraceId(ctx)
+		userId := ctxutil.GetUserId(ctx)
+
+		// 如果上游没有traceId，可以在这里生成新traceId（可选）
+		if traceId == "" {
+			traceId = uuid.NewString()
+		}
 		ri := rpcinfo.GetRPCInfo(ctx)
-		logger.CtxInfof(ctx, "[%s]-Rpc client ServiceName:[%ss] Method:[%s]  request: %#v", traceId, ri.To().ServiceName(), ri.To().Method(), req)
-		// 1. 打印日志、埋点
-		// 2. 往ctx注入traceId、transmeta ttheader元数据
-		// 3. 权限校验，不满足直接 return err，截断RPC调用，不走到next()
+		// 服务端：ri.From() = 调用方; ri.To() = 当前本服务
+		svcName := ri.To().ServiceName()
+		method := ri.To().Method()
+
+		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcServer ServiceName:[%s] Method:[%s] request: %#v",
+			traceId, userId, svcName, method, req)
+
 		startTime := time.Now()
-		// 执行真正RPC调用
 		err = next(ctx, req, resp)
 		costMs := float64(time.Since(startTime).Nanoseconds()) / 1e6
 
-		// =========调用返回后（后置逻辑）=========
-		// 处理返回resp、err；统计耗时、错误码
-		logger.CtxInfof(ctx, "[%s]-Rpc client ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v",
-			traceId, ri.To().ServiceName(), ri.To().Method(), costMs, err, resp)
+		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcServer ServiceName:[%s] Method:[%s] cost:%.2fms err:%v response: %#v",
+			traceId, userId, svcName, method, costMs, err, resp)
+
+		return err
+	}
+}
+
+// RpcClientMiddleware 【客户端中间件：调用别的服务】
+// 从ctx读取 x‑trace‑id、x‑user‑id，封装进持久元数据，传递给远端服务端；打印调用耗时
+func RpcClientMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
+	return func(ctx context.Context, req, resp interface{}) (err error) {
+		// ==========【客户端：从本地ctx读取已有链路信息，打包发送给远端】==========
+		traceId := ctxutil.GetTraceId(ctx)
+		userId := ctxutil.GetUserId(ctx)
+
+		// 关键：写入Persistent，kitex底层会把这两个key序列化放到rpc请求header传给对端服务
+		ctx = ctxutil.SetMeta(ctx, traceId, userId)
+
+		ri := rpcinfo.GetRPCInfo(ctx)
+		svcName := ri.To().ServiceName()
+		method := ri.To().Method()
+
+		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcClient Call Service:[%s] Method:[%s] request:%#v",
+			traceId, userId, svcName, method, req)
+
+		start := time.Now()
+		err = next(ctx, req, resp)
+		costMs := float64(time.Since(start).Nanoseconds()) / 1e6
+
+		logger.CtxInfof(ctx, "[%s][uid:%d]-RpcClient Call Service:[%s] Method:[%s] cost:%.2fms err:%v response:%#v",
+			traceId, userId, svcName, method, costMs, err, resp)
+
 		return err
 	}
 }

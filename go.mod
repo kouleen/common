@@ -5,7 +5,9 @@ go 1.25.0
 require (
 	github.com/bytedance/gopkg v0.1.4
 	github.com/cloudwego/kitex v0.16.3
+	github.com/google/uuid v1.6.0
 	github.com/kitex-contrib/registry-etcd v0.3.0
+	github.com/kouleen/idl v0.0.8
 )
 
 require (
