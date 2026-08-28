@@ -7,7 +7,7 @@ require (
 	github.com/cloudwego/kitex v0.16.3
 	github.com/google/uuid v1.6.0
 	github.com/kitex-contrib/registry-etcd v0.3.0
-	github.com/kouleen/idl v0.0.10
+	github.com/kouleen/idl v0.0.11
 	github.com/luci/go-render v0.0.0-20160219211803-9a04cc21af0f
 	github.com/redis/go-redis/v9 v9.22.0
 	gorm.io/driver/mysql v1.6.0
