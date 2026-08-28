@@ -22,6 +22,7 @@ func RpcServerMiddleware(next endpoint.Endpoint) endpoint.Endpoint {
 		// 如果上游没有traceId，可以在这里生成新traceId（可选）
 		if traceId == "" {
 			traceId = uuid.NewString()
+			ctx = ctxutil.SetMeta(ctx, traceId, -1)
 		}
 		ri := rpcinfo.GetRPCInfo(ctx)
 		// 服务端：ri.From() = 调用方; ri.To() = 当前本服务

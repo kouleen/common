@@ -42,31 +42,37 @@ func init() {
 		log.Fatal(err)
 	}
 
-	if os.Getenv("MYSQL_SLAVE1_USERNAME") != "" {
+	if os.Getenv("MYSQL_SLAVE1_HOST") != "" {
+		if os.Getenv("MYSQL_SLAVE1_USERNAME") == "" {
+			log.Fatal("MYSQL_USERNAME env variable not set")
+		}
 		if os.Getenv("MYSQL_SLAVE1_PASSWORD") == "" {
 			log.Fatal("MYSQL_PASSWORD env variable not set")
-		}
-		if os.Getenv("MYSQL_SLAVE1_HOST") == "" {
-			log.Fatal("MYSQL_HOST env variable not set")
 		}
 		if os.Getenv("MYSQL_SLAVE1_PORT") == "" {
 			log.Fatal("MYSQL_PORT env variable not set")
 		}
-		if err := initRead1Mysql(os.Getenv("MYSQL_SLAVE1_USERNAME"), os.Getenv("MYSQL_SLAVE1_PASSWORD"), os.Getenv("MYSQL_SLAVE1_HOST"), os.Getenv("MYSQL_SLAVE1_PORT"), os.Getenv("MYSQL_DATABASE")); err != nil {
+		if os.Getenv("MYSQL_SLAVE1_DATABASE") == "" {
+			log.Fatal("MYSQL_DATABASE env variable not set")
+		}
+		if err := initRead1Mysql(os.Getenv("MYSQL_SLAVE1_USERNAME"), os.Getenv("MYSQL_SLAVE1_PASSWORD"), os.Getenv("MYSQL_SLAVE1_HOST"), os.Getenv("MYSQL_SLAVE1_PORT"), os.Getenv("MYSQL_SLAVE1_DATABASE")); err != nil {
 			log.Fatal(err)
 		}
 	}
-	if os.Getenv("MYSQL_SLAVE2_USERNAME") != "" {
+	if os.Getenv("MYSQL_SLAVE2_HOST") != "" {
+		if os.Getenv("MYSQL_SLAVE2_USERNAME") == "" {
+			log.Fatal("MYSQL_USERNAME env variable not set")
+		}
 		if os.Getenv("MYSQL_SLAVE2_PASSWORD") == "" {
 			log.Fatal("MYSQL_PASSWORD env variable not set")
-		}
-		if os.Getenv("MYSQL_SLAVE2_HOST") == "" {
-			log.Fatal("MYSQL_HOST env variable not set")
 		}
 		if os.Getenv("MYSQL_SLAVE2_PORT") == "" {
 			log.Fatal("MYSQL_PORT env variable not set")
 		}
-		if err := initRead2Mysql(os.Getenv("MYSQL_SLAVE2_USERNAME"), os.Getenv("MYSQL_SLAVE2_PASSWORD"), os.Getenv("MYSQL_SLAVE2_HOST"), os.Getenv("MYSQL_SLAVE2_PORT"), os.Getenv("MYSQL_DATABASE")); err != nil {
+		if os.Getenv("MYSQL_SLAVE2_DATABASE") == "" {
+			log.Fatal("MYSQL_DATABASE env variable not set")
+		}
+		if err := initRead2Mysql(os.Getenv("MYSQL_SLAVE2_USERNAME"), os.Getenv("MYSQL_SLAVE2_PASSWORD"), os.Getenv("MYSQL_SLAVE2_HOST"), os.Getenv("MYSQL_SLAVE2_PORT"), os.Getenv("MYSQL_SLAVE2_DATABASE")); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -131,19 +137,25 @@ func GetWriteMysqlDDB() *gorm.DB {
 }
 
 func GetReadMysqlDDB() *gorm.DB {
-	if mysqlReadDB1 == nil || mysqlReadDB2 == nil {
-		return mysqlWriteDB
+	if mysqlReadDB1 != nil && mysqlReadDB2 != nil {
+		// 原子自增
+		idx := atomic.AddUint64(&readRoundRobin, 1)
+		// 取模轮询 0,1,0,1...
+		switch idx % 2 {
+		case 0:
+			return mysqlReadDB1
+		case 1:
+			return mysqlReadDB2
+		default:
+			// 兜底返回第一个
+			return mysqlReadDB1
+		}
 	}
-	// 原子自增
-	idx := atomic.AddUint64(&readRoundRobin, 1)
-	// 取模轮询 0,1,0,1...
-	switch idx % 2 {
-	case 0:
+	if mysqlReadDB1 != nil {
 		return mysqlReadDB1
-	case 1:
+	}
+	if mysqlReadDB2 != nil {
 		return mysqlReadDB2
-	default:
-		// 兜底返回第一个
-		return mysqlReadDB1
 	}
+	return mysqlWriteDB
 }
