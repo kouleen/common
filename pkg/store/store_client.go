@@ -1,54 +1,62 @@
-package redis
+package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/kouleen/common/pkg/code"
-	"github.com/redis/go-redis/v9"
 )
 
 type CodeProcess struct{}
 
-func GetRedisClient() *redis.Client {
-	return redisClient
+func GetCacheStore() *ExpireMap {
+	return cacheStore
 }
 
 func Get(ctx context.Context, key string) (string, error) {
-	return redisClient.Get(ctx, key).Result()
+	if key == "" {
+		return "", errors.New("key is empty")
+	}
+	return GetCacheStore().get(ctx, key), nil
 }
 
 func Set(ctx context.Context, key, value string, expiration time.Duration) error {
-	return redisClient.Set(ctx, key, value, expiration).Err()
+	if key == "" {
+		return errors.New("key is empty")
+	}
+	GetCacheStore().set(ctx, key, value, expiration)
+	return nil
 }
 
 func Del(ctx context.Context, key string) error {
-	return redisClient.Del(ctx, key).Err()
+	GetCacheStore().del(ctx, key)
+	return nil
 }
 
 func (p *CodeProcess) GenerateCode(ctx context.Context, rule code.Rule) string {
 	prefix := rule.GetPrefix()
-	localDateTime := time.Now()
-	date := localDateTime.Format(rule.GetPattern())
+	date := time.Now().Format(rule.GetPattern())
 	orderCode := prefix + date
-	countStr := generateCode(ctx, prefix, rule.GetPattern())
+	countStr := generateCode(rule.GetPrefix(), rule.GetPattern())
 	orderCode += buildOrderCode(rule.GetDigit(), countStr)
 	return orderCode
 }
 
-func generateCode(ctx context.Context, keyPrefix, pattern string) string {
-	date := time.Now().Format(pattern)
+func generateCode(keyPrefix, pattern string) string {
+	now := time.Now()
+	date := now.Format(pattern)
 
 	key := fmt.Sprintf("CODE:%s:%s", keyPrefix, date)
 
-	count, err := GetRedisClient().Incr(ctx, key).Result()
+	count, err := GetCacheStore().Incr(key).Result()
 	if err != nil {
 		return ""
 	}
 	if count == 1 {
-		GetRedisClient().Expire(ctx, key, 24*time.Hour)
+		GetCacheStore().Expire(key, 24*time.Hour)
 	}
 	return strconv.FormatInt(count, 10)
 }
