@@ -36,6 +36,10 @@ func Del(ctx context.Context, key string) error {
 	return nil
 }
 
+func Ttl(ctx context.Context, key string) (time.Duration, error) {
+	return GetCacheStore().Ttl(key), nil
+}
+
 func (p *CodeProcess) GenerateCode(ctx context.Context, rule code.Rule) string {
 	prefix := rule.GetPrefix()
 	date := time.Now().Format(rule.GetPattern())

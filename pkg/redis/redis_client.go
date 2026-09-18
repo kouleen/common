@@ -28,6 +28,10 @@ func Del(ctx context.Context, key string) error {
 	return redisClient.Del(ctx, key).Err()
 }
 
+func Ttl(ctx context.Context, key string) (time.Duration, error) {
+	return redisClient.TTL(ctx, key).Result()
+}
+
 func (p *CodeProcess) GenerateCode(ctx context.Context, rule code.Rule) string {
 	prefix := rule.GetPrefix()
 	localDateTime := time.Now()
