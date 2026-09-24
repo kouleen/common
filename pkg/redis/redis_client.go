@@ -24,8 +24,14 @@ func Set(ctx context.Context, key, value string, expiration time.Duration) error
 	return redisClient.Set(ctx, key, value, expiration).Err()
 }
 
-func Del(ctx context.Context, key ...string) error {
-	return redisClient.Del(ctx, key...).Err()
+// Del 批量删除
+func Del(ctx context.Context, key ...string) (int64, error) {
+	return redisClient.Del(ctx, key...).Result()
+}
+
+// Unlink 异步删除
+func Unlink(ctx context.Context, key ...string) (int64, error) {
+	return redisClient.Unlink(ctx, key...).Result()
 }
 
 func Ttl(ctx context.Context, key string) (time.Duration, error) {
