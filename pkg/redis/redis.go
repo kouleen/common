@@ -18,15 +18,17 @@ func init() {
 			log.Fatal(err)
 		}
 	}
-	if v := os.Getenv("REDIS_DB"); v != "" {
-		iv, err := strconv.Atoi(v)
-		if err != nil {
+	if os.Getenv("REDIS_DB") == "" {
+		if err := os.Setenv("REDIS_DB", "0"); err != nil {
 			log.Fatal(err)
 		}
-		InitRedis(os.Getenv("REDIS_ADDR"), os.Getenv("REDIS_PASSWORD"), iv)
-		return
 	}
-	log.Fatalf("invalid redis db value")
+	v := os.Getenv("REDIS_DB")
+	iv, err := strconv.Atoi(v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	InitRedis(os.Getenv("REDIS_ADDR"), os.Getenv("REDIS_PASSWORD"), iv)
 }
 
 // InitRedis 初始化Redis连接（全局单例）
