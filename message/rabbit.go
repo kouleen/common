@@ -20,6 +20,7 @@ const (
 var (
 	ErrInvalidConfig     = errors.New("message config is invalid")
 	ErrConsumerStarted   = errors.New("message consumer client already started")
+	ErrConsumersInited   = errors.New("message consumers already initialized")
 	ErrNoConsumer        = errors.New("no consumer registered")
 	ErrNilMessage        = errors.New("message is nil")
 	ErrNilConsumer       = errors.New("consumer is nil")
@@ -30,6 +31,10 @@ var (
 	defaultProducerGroup = newProducerPool()
 	defaultSenderMu      sync.RWMutex
 	defaultSenderURL     string
+	defaultConsumerMu    sync.RWMutex
+	defaultConsumers     = make(map[string]Consumer)
+	defaultClientMu      sync.Mutex
+	defaultClient        *Client
 )
 
 // Message 统一消息结构。
@@ -68,6 +73,34 @@ type ClientOptions struct {
 	URL           string
 	PrefetchCount int
 	RetryInterval time.Duration
+}
+
+// RegisterConsumer 注册全局消费者，适合在业务包 init() 中调用。
+func RegisterConsumer(consumers ...Consumer) error {
+	defaultConsumerMu.Lock()
+	defer defaultConsumerMu.Unlock()
+
+	for _, consumer := range consumers {
+		if consumer == nil {
+			return ErrNilConsumer
+		}
+		queue := consumer.Queue()
+		if queue == "" {
+			return ErrEmptyQueue
+		}
+		if _, exists := defaultConsumers[queue]; exists {
+			return fmt.Errorf("queue %s already registered", queue)
+		}
+		defaultConsumers[queue] = consumer
+	}
+	return nil
+}
+
+// MustRegisterConsumer 注册全局消费者，失败时直接终止进程。
+func MustRegisterConsumer(consumers ...Consumer) {
+	if err := RegisterConsumer(consumers...); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Send 直接发送消息，不需要显式创建 producer 实例。
@@ -128,6 +161,61 @@ func CloseSenders() error {
 	defaultSenderURL = ""
 	defaultSenderMu.Unlock()
 	return defaultProducerGroup.Close()
+}
+
+// InitConsumers 使用包级注册表初始化并启动消费者。
+// 适合“业务包 init() 注册，宿主项目统一启动”的场景。
+func InitConsumers(opts ClientOptions) error {
+	return StartConsumers(nil, opts)
+}
+
+// StartConsumers 使用包级注册表初始化并启动消费者。
+// Web/Kitex 项目应传入宿主生命周期 ctx；如果传 nil，则消费者会持续运行直到显式 CloseConsumers。
+func StartConsumers(ctx context.Context, opts ClientOptions) error {
+	defaultClientMu.Lock()
+	if defaultClient != nil {
+		defaultClientMu.Unlock()
+		return ErrConsumersInited
+	}
+	defaultClientMu.Unlock()
+
+	client, err := NewClient(opts)
+	if err != nil {
+		return err
+	}
+
+	consumers := snapshotDefaultConsumers()
+	if len(consumers) == 0 {
+		return ErrNoConsumer
+	}
+	if err := client.Register(consumers...); err != nil {
+		return err
+	}
+	if err := client.Start(ctx); err != nil {
+		return err
+	}
+
+	defaultClientMu.Lock()
+	defer defaultClientMu.Unlock()
+	if defaultClient != nil {
+		_ = client.Close()
+		return ErrConsumersInited
+	}
+	defaultClient = client
+	return nil
+}
+
+// CloseConsumers 关闭包级默认消费者客户端。
+func CloseConsumers() error {
+	defaultClientMu.Lock()
+	client := defaultClient
+	defaultClient = nil
+	defaultClientMu.Unlock()
+
+	if client == nil {
+		return nil
+	}
+	return client.Close()
 }
 
 // Client 是“实现接口即可消费”的客户端。
@@ -214,18 +302,6 @@ func (c *Client) Start(ctx context.Context) error {
 		go c.consumeLoop(consumer)
 	}
 	return nil
-}
-
-// Run 启动消费者并阻塞到 ctx 结束。
-func (c *Client) Run(ctx context.Context) error {
-	if ctx == nil {
-		return errors.New("run context is nil")
-	}
-	if err := c.Start(ctx); err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return c.Close()
 }
 
 // Close 停止消费并等待所有后台协程退出。
@@ -648,6 +724,17 @@ func normalizeClientOptions(opts ClientOptions) ClientOptions {
 		opts.RetryInterval = defaultRetryInterval
 	}
 	return opts
+}
+
+func snapshotDefaultConsumers() []Consumer {
+	defaultConsumerMu.RLock()
+	defer defaultConsumerMu.RUnlock()
+
+	consumers := make([]Consumer, 0, len(defaultConsumers))
+	for _, consumer := range defaultConsumers {
+		consumers = append(consumers, consumer)
+	}
+	return consumers
 }
 
 func toAMQPHeaders(headers map[string]any) amqp091.Table {
