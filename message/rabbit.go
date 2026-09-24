@@ -660,7 +660,7 @@ func (c *Client) consumeLoop(consumer Consumer) {
 					Body:        delivery.Body,
 					Headers:     fromAMQPHeaders(delivery.Headers),
 				}
-				logger.CtxInfof(context.Background(), "[%s]-Message received Queue:[%s],MessageID:[%s]", msg.TraceID, queue, msg.MessageID)
+				logger.CtxInfof(context.Background(), "[%s]-Message received Queue:[%s],MessageID:[%s],Body:[%s]", msg.TraceID, queue, msg.MessageID, string(msg.Body))
 				if handleErr := consumer.HandleMessage(c.ctx, msg); handleErr != nil {
 					logger.CtxErrorf(context.Background(), "[%s]-Message handle failed Queue:[%s] MessageID:[%s] err: %v", msg.TraceID, queue, msg.MessageID, handleErr)
 					if nackErr := delivery.Nack(false, true); nackErr != nil {
