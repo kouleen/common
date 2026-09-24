@@ -216,6 +216,18 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
+// Run 启动消费者并阻塞到 ctx 结束。
+func (c *Client) Run(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("run context is nil")
+	}
+	if err := c.Start(ctx); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return c.Close()
+}
+
 // Close 停止消费并等待所有后台协程退出。
 func (c *Client) Close() error {
 	c.cancel()
@@ -553,6 +565,7 @@ func (c *Client) consumeLoop(consumer Consumer) {
 			}
 			continue
 		}
+		log.Printf("message consumer ready queue=%s", queue)
 
 	readLoop:
 		for {
@@ -570,7 +583,9 @@ func (c *Client) consumeLoop(consumer Consumer) {
 					Body:        delivery.Body,
 					Headers:     fromAMQPHeaders(delivery.Headers),
 				}
-				if err := consumer.HandleMessage(c.ctx, msg); err != nil {
+				log.Printf("message received queue=%s messageId=%s", queue, msg.MessageID)
+				if handleErr := consumer.HandleMessage(c.ctx, msg); handleErr != nil {
+					log.Printf("message handle failed queue=%s messageId=%s err=%v", queue, msg.MessageID, handleErr)
 					if nackErr := delivery.Nack(false, true); nackErr != nil {
 						log.Printf("message nack failed queue=%s err=%v", queue, nackErr)
 					}
