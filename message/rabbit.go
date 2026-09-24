@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/gopkg/util/logger"
 	"github.com/rabbitmq/amqp091-go"
 )
 
@@ -554,9 +555,9 @@ func (p *Producer) reconnectLoop() {
 			return
 		case err, ok := <-notifyClose:
 			if !ok || err == nil {
-				log.Println("message producer connection closed, reconnecting")
+				logger.CtxInfof(context.Background(), "message producer connection closed, reconnecting")
 			} else {
-				log.Printf("message producer connection closed: %v, reconnecting", err)
+				logger.CtxErrorf(context.Background(), "message producer connection closed: %v, reconnecting", err)
 			}
 		}
 
@@ -570,7 +571,7 @@ func (p *Producer) reconnectLoop() {
 			if err := p.connect(); err == nil {
 				break
 			} else {
-				log.Printf("message producer reconnect failed: %v", err)
+				logger.CtxErrorf(context.Background(), "message producer reconnect failed: %v", err)
 			}
 
 			if !sleepWithContext(p.ctx, defaultRetryInterval) {
@@ -604,7 +605,7 @@ func (c *Client) consumeLoop(consumer Consumer) {
 
 		conn, err := amqp091.Dial(c.options.URL)
 		if err != nil {
-			log.Printf("message consumer dial failed queue=%s err=%v", queue, err)
+			logger.CtxErrorf(context.Background(), "message consumer dial failed queue:[%s] err: %v", queue, err)
 			if !sleepWithContext(c.ctx, retryInterval) {
 				return
 			}
@@ -614,17 +615,17 @@ func (c *Client) consumeLoop(consumer Consumer) {
 		ch, err := conn.Channel()
 		if err != nil {
 			_ = conn.Close()
-			log.Printf("message consumer channel failed queue=%s err=%v", queue, err)
+			logger.CtxErrorf(context.Background(), "message consumer channel failed queue:[%s] err: %v", queue, err)
 			if !sleepWithContext(c.ctx, retryInterval) {
 				return
 			}
 			continue
 		}
 
-		if err := c.prepareQueue(ch, consumer); err != nil {
+		if err = c.prepareQueue(ch, consumer); err != nil {
 			_ = ch.Close()
 			_ = conn.Close()
-			log.Printf("message consumer prepare failed queue=%s err=%v", queue, err)
+			logger.CtxErrorf(context.Background(), "message consumer prepare failed queue:[%s] err: %v", queue, err)
 			if !sleepWithContext(c.ctx, retryInterval) {
 				return
 			}
@@ -635,13 +636,13 @@ func (c *Client) consumeLoop(consumer Consumer) {
 		if err != nil {
 			_ = ch.Close()
 			_ = conn.Close()
-			log.Printf("message consumer register failed queue=%s err=%v", queue, err)
+			logger.CtxErrorf(context.Background(), "message consumer register failed queue:[%s] err: %v", queue, err)
 			if !sleepWithContext(c.ctx, retryInterval) {
 				return
 			}
 			continue
 		}
-		log.Printf("message consumer ready queue=%s", queue)
+		logger.CtxInfof(context.Background(), "message consumer ready queue:[%s]", queue)
 
 	readLoop:
 		for {
@@ -659,16 +660,16 @@ func (c *Client) consumeLoop(consumer Consumer) {
 					Body:        delivery.Body,
 					Headers:     fromAMQPHeaders(delivery.Headers),
 				}
-				log.Printf("message received queue=%s messageId=%s", queue, msg.MessageID)
+				logger.CtxInfof(context.Background(), "[%s]-Message received Queue:[%s],MessageID:[%s]", msg.TraceID, queue, msg.MessageID)
 				if handleErr := consumer.HandleMessage(c.ctx, msg); handleErr != nil {
-					log.Printf("message handle failed queue=%s messageId=%s err=%v", queue, msg.MessageID, handleErr)
+					logger.CtxErrorf(context.Background(), "[%s]-Message handle failed Queue:[%s] MessageID:[%s] err: %v", msg.TraceID, queue, msg.MessageID, handleErr)
 					if nackErr := delivery.Nack(false, true); nackErr != nil {
-						log.Printf("message nack failed queue=%s err=%v", queue, nackErr)
+						logger.CtxErrorf(context.Background(), "[%s]-Message nack failed Queue:[%s] err: %v", msg.TraceID, queue, nackErr)
 					}
 					continue
 				}
 				if ackErr := delivery.Ack(false); ackErr != nil {
-					log.Printf("message ack failed queue=%s err=%v", queue, ackErr)
+					logger.CtxErrorf(context.Background(), "[%s]-Message ack failed Queue:[%s] err: %v", msg.TraceID, queue, ackErr)
 				}
 			}
 		}
