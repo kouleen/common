@@ -1,15 +1,20 @@
 package bootstrap
 
 import (
+	"context"
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
 	"github.com/cloudwego/kitex/pkg/transmeta"
 	"github.com/cloudwego/kitex/server"
 	etcd "github.com/kitex-contrib/registry-etcd"
+	"github.com/kouleen/common/message"
 )
 
 // ServerOption 启动器选项
@@ -77,14 +82,60 @@ func Options(serviceName string, opts ...ServerOption) []server.Option {
 	return serverOpts
 }
 
-// Run 启动一个 Kitex RPC 服务。
+// Run 启动 Kitex RPC 服务，自动管理RabbitMQ生命周期
 //
 //	newServer: 闭包，接收公共选项，内部调用 IDL 生成的 NewServer。
-//	           这样完全避开泛型推断，任何服务的 NewServer 都能适配。
 func Run(serviceName string, newServer func(...server.Option) server.Server, opts ...ServerOption) {
 	SetCurrentServiceName(serviceName)
+
+	var needCloseMQ bool
+	var consumeCancel context.CancelFunc
+
+	// 全局信号ctx，统一优雅关闭
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		log.Println("receive shutdown signal, starting graceful exit")
+		rootCancel()
+	}()
+
+	consumeEnable := strings.ToLower(os.Getenv("RABBITMQ_CONSUME_ENABLE")) == "true"
+
+	// 有MQ地址 → 初始化连接，生产者可用
+	if rabbitUrl := os.Getenv("RABBITMQ_URL"); rabbitUrl != "" {
+		if err := message.InitRabbitMQ(rabbitUrl); err != nil {
+			log.Fatalf("rabbitmq init failed: %v", err)
+		}
+		needCloseMQ = true
+		log.Println("rabbitmq connection initialized, producer ready")
+
+		// 消费开关开启，才启动消费协程
+		if consumeEnable {
+			consumeCtx, cancel := context.WithCancel(rootCtx)
+			consumeCancel = cancel
+			if err := message.StartConsume(consumeCtx); err != nil {
+				log.Fatalf("rabbitmq start consume failed: %v", err)
+			}
+			log.Println("rabbitmq consumer started")
+		}
+	}
+
+	// defer 统一清理
+	defer func() {
+		if consumeCancel != nil {
+			consumeCancel()
+		}
+		if needCloseMQ {
+			log.Println("shutdown: close rabbitmq connection")
+			_ = message.Close()
+		}
+	}()
+
 	svr := newServer(Options(serviceName, opts...)...)
+	log.Printf("kitex service [%s] running", serviceName)
 	if err := svr.Run(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("kitex server run error: %v", err)
 	}
 }
