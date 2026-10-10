@@ -9,7 +9,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/kitex-contrib/registry-etcd v0.3.0
 	github.com/kouleen/idl v0.0.36
-	github.com/luci/go-render v0.0.0-20160219211803-9a04cc21af0f
 	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/redis/go-redis/v9 v9.22.0
 	gorm.io/driver/mysql v1.6.0
