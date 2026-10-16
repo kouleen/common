@@ -8,7 +8,7 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/google/uuid v1.6.0
 	github.com/kitex-contrib/registry-etcd v0.3.0
-	github.com/kouleen/idl v0.0.49
+	github.com/kouleen/idl v0.0.50
 	github.com/rabbitmq/amqp091-go v1.15.0
 	github.com/redis/go-redis/v9 v9.22.0
 	gorm.io/driver/mysql v1.6.0
