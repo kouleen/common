@@ -26,7 +26,7 @@ type SegmentAlloc struct {
 // NewSegmentAlloc 创建分配器并预拉取第一段号段
 func NewSegmentAlloc(ctx context.Context, bizTag string) (*SegmentAlloc, error) {
 	status := int8(1)
-	workflowSegmentList, err := client.GetWorkflowRpc().QueryWorkflowSegmentList(ctx, &workflow.WorkflowSegmentRequest{
+	workflowSegmentList, err := client.GetWorkflowRpc(ctx).QueryWorkflowSegmentList(ctx, &workflow.WorkflowSegmentRequest{
 		BizTag: bizTag,
 		Status: &status,
 	})
@@ -80,14 +80,14 @@ func (s *SegmentAlloc) fetchSegment(ctx context.Context, rec *workflow.WorkflowS
 		CreateTime: &rec.CreateTime,
 		UpdateTime: &rec.UpdateTime,
 	}
-	success, err := client.GetWorkflowRpc().FetchWorkflowSegment(ctx, req)
+	success, err := client.GetWorkflowRpc(ctx).FetchWorkflowSegment(ctx, req)
 	if err != nil {
 		return err
 	}
 	if !success {
 		return errors.New("fetch segment fail")
 	}
-	segmentResponse, err := client.GetWorkflowRpc().QueryWorkflowSegment(ctx, req)
+	segmentResponse, err := client.GetWorkflowRpc(ctx).QueryWorkflowSegment(ctx, req)
 	if err != nil {
 		return err
 	}
