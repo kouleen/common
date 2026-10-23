@@ -31,25 +31,25 @@ func GetUserRpc(ctx context.Context) userservice.Client {
 	return userRpc
 }
 
-func GetSystemRpc() systemservice.Client {
+func GetSystemRpc(ctx context.Context) systemservice.Client {
 	if err := InitClientRpc(); err != nil {
-		logutil.CtxError(context.Background(), "failed to initialize system rpc client")
+		logutil.CtxError(ctx, "failed to initialize system rpc client")
 		panic(err)
 	}
 	return systemRpc
 }
 
-func GetRoomRpc() roomservice.Client {
+func GetRoomRpc(ctx context.Context) roomservice.Client {
 	if err := InitClientRpc(); err != nil {
-		logutil.CtxError(context.Background(), "failed to initialize room rpc client")
+		logutil.CtxError(ctx, "failed to initialize room rpc client")
 		panic(err)
 	}
 	return roomRpc
 }
 
-func GetWorkflowRpc() workflowservice.Client {
+func GetWorkflowRpc(ctx context.Context) workflowservice.Client {
 	if err := InitClientRpc(); err != nil {
-		logutil.CtxError(context.Background(), "failed to initialize workflow rpc client")
+		logutil.CtxError(ctx, "failed to initialize workflow rpc client")
 		panic(err)
 	}
 	return workflowRpc
