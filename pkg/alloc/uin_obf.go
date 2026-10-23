@@ -8,7 +8,7 @@ const (
 
 	legacy9DigitMin int64 = 100_000_000
 	legacy9DigitMax int64 = 999_999_999
-	legacy9DigitMod int64 = legacy9DigitMax - legacy9DigitMin + 1
+	legacy9DigitMod       = legacy9DigitMax - legacy9DigitMin + 1
 )
 
 // 9 位 UIN 保持历史映射，避免已发出去的号码失真。

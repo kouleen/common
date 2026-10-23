@@ -78,7 +78,7 @@ func InitClientRpc() error {
 			systemRpc = systemClient
 		}
 		if roomClient, err := bootstrap.NewClient(
-			rpc.ROOT_RPC_SERVER,
+			rpc.ROOM_RPC_SERVER,
 			roomservice.NewClient,
 			bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
 		); err != nil {
