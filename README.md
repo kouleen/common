@@ -365,7 +365,7 @@ import (
 type LoginLogConsumer struct{}
 
 func (LoginLogConsumer) Queue() string {
-	return "user-login-log"
+	return "user-login-logutil"
 }
 
 func (LoginLogConsumer) HandleMessage(ctx context.Context, msg *message.Message) error {
