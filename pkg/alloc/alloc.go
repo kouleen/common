@@ -117,3 +117,15 @@ func (s *SegmentAlloc) Next(ctx context.Context) (int64, error) {
 	}
 	return id, nil
 }
+
+func (s *SegmentAlloc) NextObfuscate(ctx context.Context) (int64, error) {
+	next, err := s.Next(ctx)
+	if err != nil {
+		return 0, err
+	}
+	obfuscate, err := Obfuscate(next)
+	if err != nil {
+		return 0, err
+	}
+	return obfuscate, nil
+}
