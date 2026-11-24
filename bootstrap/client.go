@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/cloudwego/kitex/client"
@@ -65,7 +66,14 @@ func NewClient[T any](destService string, newClient func(string, ...client.Optio
 			log.Fatal(err)
 		}
 	}
-	r, err := etcd.NewEtcdResolver([]string{os.Getenv("ETCD_ENDPOINTS")})
+	var endpoints []string
+	for _, s := range strings.Split(os.Getenv("ETCD_ENDPOINTS"), ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			endpoints = append(endpoints, s)
+		}
+	}
+	r, err := etcd.NewEtcdResolver(endpoints)
 	if err != nil {
 		var zero T
 		return zero, err

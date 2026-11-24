@@ -7,8 +7,10 @@ import (
 	"github.com/kouleen/common/bootstrap"
 	"github.com/kouleen/common/middleware"
 	"github.com/kouleen/common/pkg/logutil"
+	"github.com/kouleen/idl/kitex_gen/payment/paymentservice"
 	"github.com/kouleen/idl/kitex_gen/room/roomservice"
 	"github.com/kouleen/idl/kitex_gen/rpc"
+	"github.com/kouleen/idl/kitex_gen/stream/streamservice"
 	"github.com/kouleen/idl/kitex_gen/system/systemservice"
 	"github.com/kouleen/idl/kitex_gen/user/userservice"
 	"github.com/kouleen/idl/kitex_gen/workflow/workflowservice"
@@ -19,6 +21,8 @@ var (
 	systemRpc      systemservice.Client
 	roomRpc        roomservice.Client
 	workflowRpc    workflowservice.Client
+	paymentRpc     paymentservice.Client
+	streamRpc      streamservice.Client
 	clientInitOnce sync.Once
 	clientInitErr  error
 )
@@ -53,6 +57,22 @@ func GetWorkflowRpc(ctx context.Context) workflowservice.Client {
 		panic(err)
 	}
 	return workflowRpc
+}
+
+func GetPaymentRpc(ctx context.Context) paymentservice.Client {
+	if err := InitClientRpc(); err != nil {
+		logutil.CtxError(ctx, "failed to initialize payment rpc client")
+		panic(err)
+	}
+	return paymentRpc
+}
+
+func GetStreamRpc(ctx context.Context) streamservice.Client {
+	if err := InitClientRpc(); err != nil {
+		logutil.CtxError(ctx, "failed to initialize stream rpc client")
+		panic(err)
+	}
+	return streamRpc
 }
 
 func InitClientRpc() error {
@@ -97,7 +117,25 @@ func InitClientRpc() error {
 		} else {
 			workflowRpc = workflowClient
 		}
+		if paymentClient, err := bootstrap.NewClient(
+			rpc.PAYMENT_RPC_SERVER,
+			paymentservice.NewClient,
+			bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
+		); err != nil {
+			clientInitErr = err
+			return
+		} else {
+			paymentRpc = paymentClient
+		}
+		if streamClient, err := bootstrap.NewClient(
+			rpc.STREAM_RPC_SERVER,
+			streamservice.NewClient,
+			bootstrap.WithClientMiddleware(middleware.RpcClientMiddleware),
+		); err != nil {
+			clientInitErr = err
+		} else {
+			streamRpc = streamClient
+		}
 	})
-
 	return clientInitErr
 }
