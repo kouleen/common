@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/cloudwego/kitex/pkg/endpoint"
 	"github.com/cloudwego/kitex/pkg/rpcinfo"
@@ -51,7 +52,14 @@ func Options(serviceName string, opts ...ServerOption) []server.Option {
 		log.Fatal("ADDRESS is empty")
 	}
 
-	r, err := etcd.NewEtcdRegistry([]string{os.Getenv("ETCD_ENDPOINTS")})
+	var endpoints []string
+	for _, s := range strings.Split(os.Getenv("ETCD_ENDPOINTS"), ",") {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			endpoints = append(endpoints, s)
+		}
+	}
+	r, err := etcd.NewEtcdRegistry(endpoints)
 	if err != nil {
 		log.Fatalf("etcd registry init failed: %v", err)
 	}
